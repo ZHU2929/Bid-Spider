@@ -2,9 +2,8 @@ name: 每日招标监控
 
 on:
   schedule:
-    # 每天 UTC 时间 1:00 运行（对应北京时间 9:00）
-    - cron: '0 1 * * *'
-  workflow_dispatch:  # 允许手动触发测试
+    - cron: '0 1 * * *'  # 每天 UTC 1:00（北京时间 9:00）
+  workflow_dispatch:     # 允许手动触发
 
 jobs:
   scrape:
@@ -21,7 +20,8 @@ jobs:
 
       - name: 安装 Python 依赖
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: 安装 Playwright 浏览器
         run: |
