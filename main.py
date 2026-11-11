@@ -8,22 +8,24 @@ from config import OUTPUT_DIR
 from models import BidItem, SiteUnreachable
 from sites import ejy365_xinjiang
 
-# 只保留 e交易（新疆专区）
 SITES = [
     ("e交易（新疆专区）", ejy365_xinjiang),
 ]
 
 
-def generate_markdown(unique_items: list[BidItem], out_path: str):
+def generate_text(unique_items: list[BidItem], out_path: str) -> str:
+    """生成纯文本报告，返回文本内容用于微信推送"""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     lines = []
-    lines.append(f"# 每日招标监控报告 ({now_str})")
-    lines.append(f"\n**今日符合条件总数: {len(unique_items)} 条**\n")
+    lines.append(f"📅 每日招标监控 ({now_str})")
+    lines.append(f"🔥 今日符合条件：{len(unique_items)} 条\n")
 
     if not unique_items:
-        lines.append("> 今日暂无符合条件（新疆+废旧物资+进行中）的招标项目。")
+        lines.append("💤 今日暂无符合条件（新疆+废旧物资+进行中）的招标项目。")
     else:
         for idx, it in enumerate(unique_items, 1):
+            # 格式化时间：如果时分是 00:00，就只显示日期
             if it.end_time:
                 if it.end_time.hour == 0 and it.end_time.minute == 0:
                     end_str = it.end_time.strftime("%Y年%m月%d日")
@@ -32,22 +34,28 @@ def generate_markdown(unique_items: list[BidItem], out_path: str):
             else:
                 end_str = "未标明"
 
-            lines.append(f"### {idx}. {it.title}")
-            lines.append(f"- **网站**: {it.site_name}")
-            lines.append(f"- **截止时间**: {end_str}")
-            lines.append(f"- **详情链接**: [点击查看详情页]({it.url})")
-            lines.append("")
+            # 用 Emoji 数字前缀
+            emoji_num = f"{idx}️⃣" if idx <= 10 else f"[{idx}]"
 
-    md_content = "\n".join(lines)
+            lines.append(f"{emoji_num} {it.title}")
+            lines.append(f"🏢 来源：{it.site_name}")
+            lines.append(f"⏰ 截止：{end_str}")
+            lines.append(f"🔗 链接：{it.url}")
+            lines.append("━━━━━━━━━━━━━━━")  # 分割线
 
+    text_content = "\n".join(lines)
+
+    # 保存到本地文件
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write(md_content)
+        f.write(text_content)
 
     print("\n" + "=" * 40)
-    print("Markdown 预览内容:")
+    print("纯文本预览内容:")
     print("=" * 40)
-    print(md_content)
+    print(text_content)
     print("=" * 40)
+
+    return text_content
 
 
 def main():
@@ -58,7 +66,6 @@ def main():
 
     print("=" * 60)
     print("招标爬虫启动  |  目标：新疆 · 废旧/报废/闲置资产 · 进行中")
-    print("当前仅爬取：e交易（新疆专区）")
     print("=" * 60)
 
     for site_name, module in SITES:
@@ -82,7 +89,7 @@ def main():
             seen.add(it.url)
             unique.append(it)
 
-    # 输出 CSV
+    # 输出 CSV (后台留档用)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_path = os.path.join(OUTPUT_DIR, f"result_ejy365_{ts}.csv")
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
@@ -96,22 +103,20 @@ def main():
                 it.site_name,
             ])
 
-    # 输出 Markdown
-    md_path = os.path.join(OUTPUT_DIR, f"report_{ts}.md")
-    generate_markdown(unique, md_path)
+    # 输出 TXT 并获取文本内容
+    txt_path = os.path.join(OUTPUT_DIR, f"report_{ts}.txt")
+    text_content = generate_text(unique, txt_path)
 
     # ====================================================
-    # ===== 新增：推送到微信 =====
+    # ===== 推送到微信 =====
     # ====================================================
     try:
         from push_wechat import send_to_wechat
         print("\n[调试] 正在发送微信推送...")
-        with open(md_path, "r", encoding="utf-8") as f:
-            md_content = f.read()
 
         # 调用推送函数，标题带上今日的数量
         title = f"新疆招标监控: 今日 {len(unique)} 条"
-        send_to_wechat(title, md_content)
+        send_to_wechat(title, text_content)
     except Exception as e:
         print(f"❌ 微信推送模块运行出错: {e}")
     # ====================================================
@@ -119,15 +124,13 @@ def main():
     # 汇总
     print(f"\n[完成] 共 {len(unique)} 条符合条件")
     print(f"CSV 文件已保存至: {csv_path}")
-    print(f"Markdown 文件已保存至: {md_path}")
+    print(f"TXT 文件已保存至: {txt_path}")
 
     if failures:
         print("\n无法正常访问 / 无法抓取的网站:")
         for name, reason in failures:
             print(f"  ✗ {name}")
             print(f"    原因: {reason}")
-    else:
-        print("\n所有网站均正常返回。")
     print("=" * 60)
 
 

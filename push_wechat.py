@@ -1,17 +1,19 @@
 # push_wechat.py
+import os
 import requests
 
-# 把你的 PushPlus Token 填在这里
-PUSHPLUS_TOKEN = "50e72c3ea04b496c900322b89e810230"
+# 去 https://www.pushplus.plus/ 微信扫码登录，复制你的 Token 填在这里
+# 如果是在 GitHub 上跑，代码会自动读取你配置的 Secrets
+PUSHPLUS_TOKEN = os.environ.get("PUSHPLUS_TOKEN", "你的本地Token填这里")
 
 
-def send_to_wechat(title: str, markdown_content: str):
+def send_to_wechat(title: str, text_content: str):
     url = "https://www.pushplus.plus/send"
     data = {
         "token": PUSHPLUS_TOKEN,
         "title": title,
-        "content": markdown_content,
-        "template": "markdown"
+        "content": text_content,
+        "template": "txt"  # 【修改这里】改用纯文本模式，微信阅读体验最好
     }
     try:
         resp = requests.post(url, json=data, timeout=15)
